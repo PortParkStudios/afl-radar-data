@@ -103,6 +103,29 @@ const METRIC_SOURCES = {
   intercepts: ['intercepts'],
   marksInside50: ['marksInside50'],
   groundBallGets: ['extendedStats.groundBallGets'],
+  // --- Champion Data advanced stats + official AFL Player Rating. Live from the
+  // AFL/CD feed (fetch_afl.R keep-list), same per-match counts/units as above.
+  // Rate metrics (timeOnGroundPercentage) are averaged, never totalled (NO_TOTAL).
+  ratingPoints: ['ratingPoints'],
+  contestedMarks: ['contestedMarks'],
+  interceptMarks: ['extendedStats.interceptMarks'],
+  spoils: ['extendedStats.spoils'],
+  onePercenters: ['onePercenters'],
+  contestDefOneOnOnes: ['extendedStats.contestDefOneOnOnes'],
+  defHalfPressureActs: ['extendedStats.defHalfPressureActs'],
+  pressureActs: ['extendedStats.pressureActs'],
+  tacklesInside50: ['tacklesInside50'],
+  scoreLaunches: ['extendedStats.scoreLaunches'],
+  marksOnLead: ['extendedStats.marksOnLead'],
+  hitoutsToAdvantage: ['extendedStats.hitoutsToAdvantage'],
+  ruckContests: ['extendedStats.ruckContests'],
+  effectiveDisposals: ['extendedStats.effectiveDisposals'],
+  centreClearances: ['clearances.centreClearances'],
+  stoppageClearances: ['clearances.stoppageClearances'],
+  goalAssists: ['goalAssists'],
+  clangers: ['clangers'],
+  turnovers: ['turnovers'],
+  timeOnGroundPercentage: ['timeOnGroundPercentage'],
 };
 
 /* ------------------------- CSV parser --------------------------- */
@@ -262,7 +285,10 @@ const fmt = (k, v) => (k === 'metresGained' ? Math.round(v) : round1(v));
 
 // Rate/percentage metrics have no meaningful whole-season total — skip them
 // when capturing totals (their season "sum" would be nonsense).
-const NO_TOTAL = new Set(['disposalEfficiency', 'goalAccuracy', 'contestedRate', 'kickToHandball']);
+const NO_TOTAL = new Set([
+  'disposalEfficiency', 'goalAccuracy', 'contestedRate', 'kickToHandball',
+  'timeOnGroundPercentage', // a per-game % — a season "sum" is meaningless
+]);
 
 const matchStats = (g) => {
   const s = {};
@@ -304,8 +330,9 @@ for (const season of seasonsToBuild) {
     for (const g of games) {
       const s = matchStats(g);
       for (const [k, v] of Object.entries(s)) sum[k] = (sum[k] ?? 0) + v;
-      gameLog.push({ round: Number(g['round.roundNumber'] ?? gameLog.length + 1), stats: s });
       const pos = g['player.player.position'];
+      // Per-game on-field position (player_position) alongside the stat line.
+      gameLog.push({ round: Number(g['round.roundNumber'] ?? gameLog.length + 1), stats: s, ...(pos ? { pos } : {}) });
       if (pos) positions.push(pos);
       if (jumper == null) jumper = jumperOf(g);
     }

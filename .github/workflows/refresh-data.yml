@@ -94,12 +94,25 @@ jobs:
             echo "no afl_raw.csv — skipping livestats"
           fi
 
-      - name: Build honours
-        # Matches the committed honours CSVs (Brownlow/AA/Rising Star) to players
-        # -> honours.json. Cheap; the heavy fetch (fetch_honours.R) is run locally
-        # + committed since awards only change once a year. Best-effort.
+      - name: Refresh AFLCA coaches votes
+        # Unlike the once-a-year Brownlow/AA/Rising CSVs, coaches votes ACCUMULATE
+        # every round and publish live-weekly — so they refresh on THIS daily
+        # cadence. Full rebuild re-fetches every season; the daily incremental
+        # refreshes only the current season and MERGES (keeps prior seasons in the
+        # committed CSV). Best-effort: a votes failure must not block the refresh.
         run: |
-          if [ -f scripts/afl/honours_brownlow.csv ] || [ -f scripts/afl/honours_aa.csv ]; then
+          YEAR=$(date -u +%Y)
+          if [ "${{ inputs.full }}" = "true" ]; then
+            Rscript scripts/afl/fetch_coaches_votes.R 2013 "$YEAR" || echo "coaches votes fetch failed — skipping"
+          else
+            Rscript scripts/afl/fetch_coaches_votes.R "$YEAR" "$YEAR" || echo "coaches votes fetch failed — skipping"
+          fi
+
+      - name: Build honours
+        # Matches the honours CSVs (Brownlow/AA/Rising Star committed once a year;
+        # coaches votes refreshed above) to players -> honours.json. Cheap.
+        run: |
+          if [ -f scripts/afl/honours_brownlow.csv ] || [ -f scripts/afl/honours_aa.csv ] || [ -f scripts/afl/honours_coaches.csv ]; then
             node scripts/afl/build-honours.mjs --players players.json || echo "honours build failed — skipping"
           else
             echo "no honours CSVs committed — skipping honours"
@@ -117,6 +130,9 @@ jobs:
           [ -f lineups.json ] && git add lineups.json || true
           [ -f livestats.json ] && git add livestats.json || true
           [ -f honours.json ] && git add honours.json || true
+          # Coaches votes refresh weekly, so the regenerated CSV is committed too
+          # (the once-a-year Brownlow/AA/Rising CSVs are committed manually).
+          [ -f scripts/afl/honours_coaches.csv ] && git add scripts/afl/honours_coaches.csv || true
           if git diff --cached --quiet; then
             echo "No data changes — nothing to publish."
           else

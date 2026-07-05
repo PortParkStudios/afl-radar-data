@@ -74,7 +74,17 @@ keep <- c(
   "contestedPossessions", "uncontestedPossessions", "inside50s", "marksInside50",
   "hitouts", "disposalEfficiency", "rebound50s", "intercepts", "scoreInvolvements",
   "metresGained", "clearances.centreClearances", "clearances.stoppageClearances",
-  "clearances.totalClearances", "extendedStats.groundBallGets"
+  "clearances.totalClearances", "extendedStats.groundBallGets",
+  # --- Champion Data advanced stats + official AFL Player Rating (all present in
+  # the AFL/CD feed back to 2012, fully populated). Same live path as the basics
+  # above; historical seasons pick them up on a full merge-rebuild.
+  "ratingPoints", "contestedMarks", "onePercenters", "tacklesInside50",
+  "timeOnGroundPercentage", "goalAssists", "clangers", "turnovers",
+  "extendedStats.spoils", "extendedStats.interceptMarks",
+  "extendedStats.contestDefOneOnOnes", "extendedStats.defHalfPressureActs",
+  "extendedStats.pressureActs", "extendedStats.scoreLaunches",
+  "extendedStats.marksOnLead", "extendedStats.hitoutsToAdvantage",
+  "extendedStats.ruckContests", "extendedStats.effectiveDisposals"
 )
 combined <- combined[, intersect(keep, names(combined)), drop = FALSE]
 

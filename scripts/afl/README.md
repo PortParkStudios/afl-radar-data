@@ -75,6 +75,43 @@ selector, radar overlay, and career view use real history. Fetch a range, build
 without `--season`, and you get all of it. Use `--season YYYY` only if you want
 just one.
 
+## Advanced stats + official AFL Player Rating
+
+The AFL/Champion Data feed (`source="AFL"`) exposes the full advanced stat set
+**and** CD's official **AFL Player Rating** (`ratingPoints`), fully populated back
+to 2012 — the same live feed already used for the basics. `fetch_afl.R` keeps
+these columns and `build-players.mjs` maps them into each player's season `stats`
+/`totals` and per-game `gameLog` (with `pos`, the on-field position):
+
+`ratingPoints`, `contestedMarks`, `interceptMarks`, `spoils`, `onePercenters`,
+`contestDefOneOnOnes`, `defHalfPressureActs`, `pressureActs`, `tacklesInside50`,
+`scoreLaunches`, `marksOnLead`, `hitoutsToAdvantage`, `ruckContests`,
+`effectiveDisposals`, `centreClearances`, `stoppageClearances`, `goalAssists`,
+`clangers`, `turnovers`, `timeOnGroundPercentage` (a %, so averaged not totalled).
+
+Live path = AFL API (current season, refreshed by `refresh-data.yml` /
+`refresh-live.yml`). Historical seasons pick the fields up on a **merge**-rebuild
+(`--merge`), which enriches 2012+ while preserving the pre-2012 `historical` rows.
+Fryzigg (`fetch_player_stats_fryzigg`) has the same fields historically but is a
+fallback only — it has **no** current-season data and needs name-matching, whereas
+the AFL API shares our `personId`.
+
+## Coaches votes (AFLCA)
+
+`fetch_coaches_votes.R` pulls AFLCA player-of-the-year votes
+(`fetch_coaches_votes(season, comp="AFLM")`), sums them to a per-player **season
+total**, and writes `scripts/afl/honours_coaches.csv` (`season,player,votes`).
+`build-honours.mjs` folds that into `honours.json`'s `coaches` field (the app
+already renders it). Votes accumulate weekly, so unlike the once-a-year
+Brownlow/AA/Rising CSVs this one refreshes on the **daily** `refresh-data.yml`
+cadence — a current-season run merges (keeps the backfilled history):
+
+```bash
+Rscript scripts/afl/fetch_coaches_votes.R            # 2013 → current (full backfill)
+Rscript scripts/afl/fetch_coaches_votes.R 2026 2026  # current season only (merge)
+node scripts/afl/build-honours.mjs --players players.json
+```
+
 ## Options (`build-players.mjs`)
 
 | Flag | Default | Meaning |
