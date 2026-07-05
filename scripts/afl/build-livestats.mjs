@@ -39,7 +39,9 @@ function teamId(name) {
   return null;
 }
 
-// AFL column -> our MetricKey (per-match values). Mirrors build-players.mjs.
+// AFL column -> our MetricKey (per-match values). Mirrors build-players.mjs —
+// same keys map to the same AFL columns, so a stat means the same thing whether
+// read from livestats.json (live match lines) or players.json (season/gameLog).
 const METRIC_SOURCES = {
   disposals: 'disposals', kicks: 'kicks', handballs: 'handballs', marks: 'marks',
   contestedPossessions: 'contestedPossessions', uncontestedPossessions: 'uncontestedPossessions',
@@ -47,6 +49,18 @@ const METRIC_SOURCES = {
   behinds: 'behinds', scoreInvolvements: 'scoreInvolvements', metresGained: 'metresGained',
   hitouts: 'hitouts', intercepts: 'intercepts', marksInside50: 'marksInside50',
   groundBallGets: 'extendedStats.groundBallGets',
+  // --- Champion Data advanced stats + official AFL Player Rating. Already in
+  // afl_raw.csv (fetch_afl.R keep-list); per-match values so they map 1:1.
+  ratingPoints: 'ratingPoints', contestedMarks: 'contestedMarks',
+  interceptMarks: 'extendedStats.interceptMarks', spoils: 'extendedStats.spoils',
+  onePercenters: 'onePercenters', contestDefOneOnOnes: 'extendedStats.contestDefOneOnOnes',
+  defHalfPressureActs: 'extendedStats.defHalfPressureActs', pressureActs: 'extendedStats.pressureActs',
+  tacklesInside50: 'tacklesInside50', scoreLaunches: 'extendedStats.scoreLaunches',
+  marksOnLead: 'extendedStats.marksOnLead', hitoutsToAdvantage: 'extendedStats.hitoutsToAdvantage',
+  ruckContests: 'extendedStats.ruckContests', effectiveDisposals: 'extendedStats.effectiveDisposals',
+  centreClearances: 'clearances.centreClearances', stoppageClearances: 'clearances.stoppageClearances',
+  goalAssists: 'goalAssists', clangers: 'clangers', turnovers: 'turnovers',
+  timeOnGroundPercentage: 'timeOnGroundPercentage',
 };
 
 function parseCSV(text) {
