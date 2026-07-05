@@ -1,0 +1,126 @@
+name: Refresh AFL data
+
+# Fetches the current AFL season, rebuilds players.json (+ best-effort worm,
+# lineups, livestats, honours), and commits the updated JSON to THIS repo.
+#
+# This repo hosts both the data and the pipeline, so publishing is just a commit
+# to itself via the built-in GITHUB_TOKEN — no personal access token required.
+# By default it fetches only the CURRENT season and merges it into the existing
+# data (historical seasons never change), so each run makes a fraction of the API
+# calls. Use the "full" input to re-fetch every season (2012 -> current).
+
+on:
+  schedule:
+    - cron: '0 20 * * *' # daily, 20:00 UTC (early-morning AEST/AEDT)
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Full rebuild (re-fetch ALL seasons) instead of the fast current-season merge'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true # Posit binary packages — fast, no compilation
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::fitzRoy
+            any::readr
+            any::dplyr
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch + build players.json
+        env:
+          DATA_URL: https://raw.githubusercontent.com/PortParkStudios/afl-radar-data/main/players.json
+        run: |
+          if [ "${{ inputs.full }}" = "true" ]; then
+            echo "Full rebuild — fetching all seasons (stats + bios)."
+            Rscript scripts/afl/fetch_afl.R
+            Rscript scripts/afl/fetch_details.R
+            node scripts/afl/build-players.mjs --json players.json --out none --min-games 1
+          else
+            YEAR=$(date -u +%Y)
+            echo "Incremental — fetching $YEAR only (stats + bios), merging into hosted data."
+            Rscript scripts/afl/fetch_afl.R "$YEAR" "$YEAR"
+            Rscript scripts/afl/fetch_details.R "$YEAR" "$YEAR"
+            node scripts/afl/build-players.mjs --json players.json --out none --merge "$DATA_URL" --min-games 1
+          fi
+
+      - name: Build score worm (recent/live rounds)
+        # AFL score-progression for the current + last round. Best-effort: a worm
+        # failure must never block the players.json refresh.
+        run: |
+          Rscript scripts/afl/fetch_worm.R || echo "worm fetch failed — skipping worm"
+          if [ -f scripts/afl/worm_raw.csv ]; then
+            node scripts/afl/build-worm.mjs || echo "worm build failed — skipping worm"
+          fi
+
+      - name: Build team sheets (recent/current rounds)
+        # AFL named lineups for recent + current + next round. Best-effort.
+        run: |
+          Rscript scripts/afl/fetch_lineup.R || echo "lineup fetch failed — skipping lineups"
+          if [ -f scripts/afl/lineup_raw.csv ]; then
+            node scripts/afl/build-lineup.mjs || echo "lineup build failed — skipping lineups"
+          fi
+
+      - name: Build live player stats (latest round)
+        # Reuses afl_raw.csv from the fetch step above — no extra AFL API calls.
+        # Best-effort.
+        run: |
+          if [ -f scripts/afl/afl_raw.csv ]; then
+            node scripts/afl/build-livestats.mjs --rounds 1 || echo "livestats build failed — skipping"
+          else
+            echo "no afl_raw.csv — skipping livestats"
+          fi
+
+      - name: Build honours
+        # Matches the committed honours CSVs (Brownlow/AA/Rising Star) to players
+        # -> honours.json. Cheap; the heavy fetch (fetch_honours.R) is run locally
+        # + committed since awards only change once a year. Best-effort.
+        run: |
+          if [ -f scripts/afl/honours_brownlow.csv ] || [ -f scripts/afl/honours_aa.csv ]; then
+            node scripts/afl/build-honours.mjs --players players.json || echo "honours build failed — skipping"
+          else
+            echo "no honours CSVs committed — skipping honours"
+          fi
+
+      - name: Commit + push updated data
+        # Publishes to THIS repo via the built-in GITHUB_TOKEN (permissions:
+        # contents: write). Only the JSON outputs are staged — the regenerated
+        # CSV intermediates are gitignored.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add players.json
+          [ -f worm.json ] && git add worm.json || true
+          [ -f lineups.json ] && git add lineups.json || true
+          [ -f livestats.json ] && git add livestats.json || true
+          [ -f honours.json ] && git add honours.json || true
+          if git diff --cached --quiet; then
+            echo "No data changes — nothing to publish."
+          else
+            git commit -m "Refresh data ($(date -u +%F))"
+            git push
+            echo "Published updated data."
+          fi

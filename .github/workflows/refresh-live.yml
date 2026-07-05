@@ -1,0 +1,117 @@
+name: Refresh live match data
+
+# In-game data (score worm, live player stats, late-change lineups) on a fast
+# match-window cadence. Commits directly to THIS repo via the built-in
+# GITHUB_TOKEN — no personal access token.
+#
+# GATED: scheduled runs first ask our Worker (cached Squiggle) whether any match
+# is live. If none, the job exits in seconds — no AFL API calls, no commit. AFL
+# work only happens while a game is actually on. Manual runs always proceed.
+
+on:
+  schedule:
+    # UTC. AFL is AEST (UTC+10). Broad windows — the live-gate makes idle ticks
+    # near-free, so over-covering costs nothing.
+    - cron: '*/5 2-13 * * 6,0' # Sat & Sun (AEST early afternoon → midnight)
+    - cron: '*/5 8-13 * * 4,5' # Thu & Fri nights
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Gate — is any match live?
+        id: gate
+        env:
+          WORKER: https://kickpoint-live.kickpoint.workers.dev
+        run: |
+          YEAR=$(date -u +%Y)
+          GAMES=$(curl -fsS "$WORKER/?q=games;year=$YEAR" || echo '{}')
+          N=$(echo "$GAMES" | jq '[.games[]? | select(.complete > 0 and .complete < 100)] | length' 2>/dev/null || echo 0)
+          ROUND=$(echo "$GAMES" | jq -r 'first(.games[]? | select(.complete > 0 and .complete < 100) | .round) // empty' 2>/dev/null || echo '')
+          MANUAL=$([ "${{ github.event_name }}" = "workflow_dispatch" ] && echo 1 || echo 0)
+          echo "live matches: ${N:-0}  round: ${ROUND:-?}  manual: $MANUAL"
+          # Proceed if a match is live, or if this is a manual run (for testing /
+          # forcing a refresh). The round (when known) drives round-scoped stats.
+          if [ "$MANUAL" = "1" ] || [ "${N:-0}" -gt 0 ]; then
+            echo "go=1" >> "$GITHUB_OUTPUT"
+            [ -n "$ROUND" ] && echo "round=$ROUND" >> "$GITHUB_OUTPUT" || true
+          else
+            echo "Nothing live — skipping."
+            echo "go=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up R
+        if: steps.gate.outputs.go == '1'
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install R packages
+        if: steps.gate.outputs.go == '1'
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::fitzRoy
+            any::readr
+            any::dplyr
+
+      - name: Set up Node
+        if: steps.gate.outputs.go == '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build live worm + stats + lineups
+        if: steps.gate.outputs.go == '1'
+        env:
+          WORM_URL: https://raw.githubusercontent.com/PortParkStudios/afl-radar-data/main/worm.json
+          LIVE_ONLY: '1'
+          ROUND: ${{ steps.gate.outputs.round }}
+        run: |
+          YEAR=$(date -u +%Y)
+
+          # Worm — live matches only, merged onto the hosted file (keeps finals).
+          Rscript scripts/afl/fetch_worm.R || echo "worm fetch failed"
+          if [ -f scripts/afl/worm_raw.csv ]; then
+            node scripts/afl/build-worm.mjs --merge "$WORM_URL" || echo "worm build failed"
+          fi
+
+          # Live player stats — current round only (round-scoped fetch = cheap).
+          if [ -n "$ROUND" ]; then
+            Rscript scripts/afl/fetch_afl.R "$YEAR" "$YEAR" "$ROUND" || echo "afl fetch failed"
+            if [ -f scripts/afl/afl_raw.csv ]; then
+              node scripts/afl/build-livestats.mjs --rounds 1 || echo "livestats build failed"
+            fi
+          fi
+
+          # Lineups — catches late changes / the sub near the bounce.
+          Rscript scripts/afl/fetch_lineup.R || echo "lineup fetch failed"
+          if [ -f scripts/afl/lineup_raw.csv ]; then
+            node scripts/afl/build-lineup.mjs || echo "lineup build failed"
+          fi
+
+      - name: Commit + push live data
+        if: steps.gate.outputs.go == '1'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -f worm.json ] && git add worm.json || true
+          [ -f livestats.json ] && git add livestats.json || true
+          [ -f lineups.json ] && git add lineups.json || true
+          if git diff --cached --quiet; then
+            echo "No changes — nothing to publish."
+          else
+            git commit -m "Live refresh ($(date -u +'%F %H:%M') UTC)"
+            git push
+            echo "Published live data."
+          fi
