@@ -4,49 +4,76 @@ name: Refresh live match data
 # match-window cadence. Commits directly to THIS repo via the built-in
 # GITHUB_TOKEN — no personal access token.
 #
-# GATED: scheduled runs first ask our Worker (cached Squiggle) whether any match
-# is live. If none, the job exits in seconds — no AFL API calls, no commit. AFL
-# work only happens while a game is actually on. Manual runs always proceed.
+# SELF-SUSTAINING: GitHub heavily delays/drops high-frequency scheduled runs, so
+# we no longer rely on a */5 cron for the in-game cadence. Instead a coarse */15
+# trigger (honoured far more reliably) STARTS a long-lived job that loops
+# internally every 180s for up to ~3h, re-checking the live-gate each pass. One
+# reliable start → continuous in-game coverage.
+#
+# GATED: at start (and every loop pass) we ask our Worker (cached Squiggle)
+# whether any match is live. If none, the job exits in seconds — no R/Node
+# setup, no AFL API calls, no commit. AFL work only happens while a game is
+# actually on. Manual runs always do at least one pass.
 
 on:
   schedule:
-    # UTC. AFL is AEST (UTC+10). Broad windows — the live-gate makes idle ticks
-    # near-free, so over-covering costs nothing.
-    - cron: '*/5 2-13 * * 6,0' # Sat & Sun (AEST early afternoon → midnight)
-    - cron: '*/5 8-13 * * 4,5' # Thu & Fri nights
+    # UTC. AFL is AEST (UTC+10). Coarse */15 start — GitHub honours it far more
+    # reliably than */5; the internal loop provides the real in-game cadence.
+    - cron: '*/15 2-13 * * 6,0' # Sat & Sun (AEST early afternoon → midnight)
+    - cron: '*/15 8-13 * * 4,5' # Thu & Fri nights
   workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: refresh-live
-  cancel-in-progress: false
+  actions: read # read our own workflow runs for the single-loop guard
 
 jobs:
   live:
     runs-on: ubuntu-latest
+    timeout-minutes: 200 # hard ceiling above the ~3h internal loop cap
+    env:
+      WORKER: https://kickpoint-live.kickpoint.workers.dev
     steps:
+      # Single-loop guard: a new */15 trigger must NOT start a second concurrent
+      # loop. We don't use a YAML `concurrency:` group here because that would
+      # QUEUE the new run (it'd sit idle for hours behind the 3h loop, then fire
+      # a pointless pass); instead we let it start and immediately bail if an
+      # earlier refresh-live run is still in progress. Comparing run IDs (lower =
+      # started earlier) guarantees exactly one survivor, never mutual cancel.
+      - name: Guard — bail if an earlier loop is still running
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUNNING=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/refresh-live.yml/runs?status=in_progress&per_page=100" \
+            --jq "[.workflow_runs[] | select(.id < ${{ github.run_id }})] | length" 2>/dev/null || echo 0)
+          if [ "${RUNNING:-0}" -gt 0 ]; then
+            echo "An earlier refresh-live loop is still running — exiting to avoid a second loop."
+            echo "proceed=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "No earlier loop running — proceeding."
+            echo "proceed=1" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.guard.outputs.proceed == '1'
 
       - name: Gate — is any match live?
         id: gate
-        env:
-          WORKER: https://kickpoint-live.kickpoint.workers.dev
+        if: steps.guard.outputs.proceed == '1'
         run: |
           YEAR=$(date -u +%Y)
           GAMES=$(curl -fsS "$WORKER/?q=games;year=$YEAR" || echo '{}')
           N=$(echo "$GAMES" | jq '[.games[]? | select(.complete > 0 and .complete < 100)] | length' 2>/dev/null || echo 0)
-          ROUND=$(echo "$GAMES" | jq -r 'first(.games[]? | select(.complete > 0 and .complete < 100) | .round) // empty' 2>/dev/null || echo '')
           MANUAL=$([ "${{ github.event_name }}" = "workflow_dispatch" ] && echo 1 || echo 0)
-          echo "live matches: ${N:-0}  round: ${ROUND:-?}  manual: $MANUAL"
-          # Proceed if a match is live, or if this is a manual run (for testing /
-          # forcing a refresh). The round (when known) drives round-scoped stats.
+          echo "live matches: ${N:-0}  manual: $MANUAL"
+          # Enter the loop if a match is live, or if this is a manual run (for
+          # testing / forcing a refresh). Round is resolved per-pass in the loop.
           if [ "$MANUAL" = "1" ] || [ "${N:-0}" -gt 0 ]; then
             echo "go=1" >> "$GITHUB_OUTPUT"
-            [ -n "$ROUND" ] && echo "round=$ROUND" >> "$GITHUB_OUTPUT" || true
           else
-            echo "Nothing live — skipping."
+            echo "Nothing live — skipping (no setup, no loop)."
             echo "go=0" >> "$GITHUB_OUTPUT"
           fi
 
@@ -71,47 +98,86 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build live worm + stats + lineups
+      - name: Live loop — refresh while a match is on
         if: steps.gate.outputs.go == '1'
         env:
           WORM_URL: https://raw.githubusercontent.com/PortParkStudios/afl-radar-data/main/worm.json
           LIVE_ONLY: '1'
-          ROUND: ${{ steps.gate.outputs.round }}
-        run: |
-          YEAR=$(date -u +%Y)
-
-          # Worm — live matches only, merged onto the hosted file (keeps finals).
-          Rscript scripts/afl/fetch_worm.R || echo "worm fetch failed"
-          if [ -f scripts/afl/worm_raw.csv ]; then
-            node scripts/afl/build-worm.mjs --merge "$WORM_URL" || echo "worm build failed"
-          fi
-
-          # Live player stats — current round only (round-scoped fetch = cheap).
-          if [ -n "$ROUND" ]; then
-            Rscript scripts/afl/fetch_afl.R "$YEAR" "$YEAR" "$ROUND" || echo "afl fetch failed"
-            if [ -f scripts/afl/afl_raw.csv ]; then
-              node scripts/afl/build-livestats.mjs --rounds 1 || echo "livestats build failed"
-            fi
-          fi
-
-          # Lineups — catches late changes / the sub near the bounce.
-          Rscript scripts/afl/fetch_lineup.R || echo "lineup fetch failed"
-          if [ -f scripts/afl/lineup_raw.csv ]; then
-            node scripts/afl/build-lineup.mjs || echo "lineup build failed"
-          fi
-
-      - name: Commit + push live data
-        if: steps.gate.outputs.go == '1'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          [ -f worm.json ] && git add worm.json || true
-          [ -f livestats.json ] && git add livestats.json || true
-          [ -f lineups.json ] && git add lineups.json || true
-          if git diff --cached --quiet; then
-            echo "No changes — nothing to publish."
-          else
-            git commit -m "Live refresh ($(date -u +'%F %H:%M') UTC)"
-            git push
-            echo "Published live data."
-          fi
+
+          # A manual dispatch always does at least one build pass, even if nothing
+          # is currently live (for testing / forcing a refresh).
+          FIRST_MANUAL=$([ "${{ github.event_name }}" = "workflow_dispatch" ] && echo 1 || echo 0)
+          DEADLINE=$(( $(date +%s) + 3 * 60 * 60 )) # ~3h cap on the internal loop
+          MISSES=0  # consecutive passes with no live game
+          FIRST=1
+
+          while :; do
+            if [ "$(date +%s)" -ge "$DEADLINE" ]; then
+              echo "Reached ~3h loop cap — exiting."
+              break
+            fi
+
+            # Re-check the live-gate each pass (same logic as the entry gate).
+            YEAR=$(date -u +%Y)
+            GAMES=$(curl -fsS "$WORKER/?q=games;year=$YEAR" || echo '{}')
+            N=$(echo "$GAMES" | jq '[.games[]? | select(.complete > 0 and .complete < 100)] | length' 2>/dev/null || echo 0)
+            ROUND=$(echo "$GAMES" | jq -r 'first(.games[]? | select(.complete > 0 and .complete < 100) | .round) // empty' 2>/dev/null || echo '')
+
+            DO_WORK=0
+            if [ "${N:-0}" -gt 0 ]; then
+              DO_WORK=1
+              MISSES=0
+            elif [ "$FIRST" = "1" ] && [ "$FIRST_MANUAL" = "1" ]; then
+              DO_WORK=1 # forced first pass of a manual dispatch
+            else
+              MISSES=$((MISSES + 1))
+            fi
+            FIRST=0
+
+            echo "live matches: ${N:-0}  round: ${ROUND:-?}  do_work: $DO_WORK  consecutive-misses: $MISSES"
+
+            if [ "$DO_WORK" = "1" ]; then
+              # Worm — live matches only, merged onto the hosted file (keeps finals).
+              Rscript scripts/afl/fetch_worm.R || echo "worm fetch failed"
+              if [ -f scripts/afl/worm_raw.csv ]; then
+                node scripts/afl/build-worm.mjs --merge "$WORM_URL" || echo "worm build failed"
+              fi
+
+              # Live player stats — current round only (round-scoped fetch = cheap).
+              if [ -n "$ROUND" ]; then
+                Rscript scripts/afl/fetch_afl.R "$YEAR" "$YEAR" "$ROUND" || echo "afl fetch failed"
+                if [ -f scripts/afl/afl_raw.csv ]; then
+                  node scripts/afl/build-livestats.mjs --rounds 1 || echo "livestats build failed"
+                fi
+              fi
+
+              # Lineups — catches late changes / the sub near the bounce.
+              Rscript scripts/afl/fetch_lineup.R || echo "lineup fetch failed"
+              if [ -f scripts/afl/lineup_raw.csv ]; then
+                node scripts/afl/build-lineup.mjs || echo "lineup build failed"
+              fi
+
+              # Commit any changed JSON as github-actions[bot].
+              [ -f worm.json ] && git add worm.json || true
+              [ -f livestats.json ] && git add livestats.json || true
+              [ -f lineups.json ] && git add lineups.json || true
+              if git diff --cached --quiet; then
+                echo "No changes — nothing to publish."
+              else
+                git commit -m "Live refresh ($(date -u +'%F %H:%M') UTC)"
+                git push
+                echo "Published live data."
+              fi
+            fi
+
+            # Two consecutive quiet passes → the match window is over.
+            if [ "${MISSES:-0}" -ge 2 ]; then
+              echo "2 consecutive checks with no live game — exiting."
+              break
+            fi
+
+            sleep 180
+          done
