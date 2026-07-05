@@ -112,5 +112,5 @@ for (const r of rows) {
 // Sort each team's lines by disposals desc (best game up top by default).
 for (const k of Object.keys(teams)) teams[k].sort((a, b) => (b.stats.disposals ?? 0) - (a.stats.disposals ?? 0));
 
-writeFileSync(OUT, JSON.stringify({ season: new Date().getFullYear(), rounds: [...keepRounds], teams }));
+writeFileSync(OUT, JSON.stringify({ season: new Date().getFullYear(), rounds: [...keepRounds], generated: new Date().toISOString(), teams }));
 console.log(`Wrote ${Object.keys(teams).length} team stat line-set(s) for round(s) ${[...keepRounds].join(', ')} to ${OUT}`);

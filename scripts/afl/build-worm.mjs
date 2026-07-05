@@ -123,6 +123,6 @@ if (MERGE) {
 }
 
 const season = rows.length ? parseInt(rows[0].year, 10) || 0 : 0;
-writeFileSync(OUT, JSON.stringify({ season, games }));
+writeFileSync(OUT, JSON.stringify({ season, generated: new Date().toISOString(), games }));
 console.log(`Wrote ${Object.keys(games).length} game worm(s) to ${OUT}`);
 if (unmapped.size) console.warn(`⚠ Unmapped team names (skipped): ${[...unmapped].join(' | ')}`);
