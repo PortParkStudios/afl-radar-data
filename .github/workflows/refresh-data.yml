@@ -55,10 +55,14 @@ jobs:
           DATA_URL: https://raw.githubusercontent.com/PortParkStudios/afl-radar-data/main/players.json
         run: |
           if [ "${{ inputs.full }}" = "true" ]; then
-            echo "Full rebuild — fetching all seasons (stats + bios)."
+            echo "Full re-fetch — every CD season (stats + bios), MERGED onto hosted."
+            # Re-fetch all Champion Data seasons (2012 -> current) and MERGE, not a
+            # standalone build. A standalone rebuild would drop the pre-2012
+            # `historical` rows (from AFL Tables, which isn't fetched in CI and
+            # segfaults locally) — merge keeps them while re-enriching 2012+.
             Rscript scripts/afl/fetch_afl.R
             Rscript scripts/afl/fetch_details.R
-            node scripts/afl/build-players.mjs --json players.json --out none --min-games 1
+            node scripts/afl/build-players.mjs --json players.json --out none --merge "$DATA_URL" --min-games 1
           else
             YEAR=$(date -u +%Y)
             echo "Incremental — fetching $YEAR only (stats + bios), merging into hosted data."
