@@ -258,6 +258,7 @@ try {
         height: n(r.heightInCm),
         draftYear: n(r.draftYear),
         draftPick: n(r.draftPosition),
+        draftType: r.draftType && r.draftType !== 'NA' ? r.draftType : undefined,
         recruitedFrom: r.recruitedFrom && r.recruitedFrom !== 'NA' ? r.recruitedFrom : undefined,
         debutYear: n(r.debutYear),
       };
@@ -364,6 +365,7 @@ for (const season of seasonsToBuild) {
     if (bio?.height) player.height = bio.height;
     if (bio?.draftYear) player.draftYear = bio.draftYear;
     if (bio?.draftPick) player.draftPick = bio.draftPick;
+    if (bio?.draftType) player.draftType = bio.draftType;
     if (bio?.recruitedFrom) player.recruitedFrom = bio.recruitedFrom;
     if (bio?.debutYear) player.debutYear = bio.debutYear;
     if (logSet.has(season)) player.gameLog = gameLog;

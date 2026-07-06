@@ -40,7 +40,7 @@ combined <- bind_rows(all)
 # all-zero from this source, so it's not kept.)
 keep <- c(
   "providerId", "dateOfBirth", "heightInCm",
-  "draftYear", "draftPosition", "recruitedFrom", "debutYear",
+  "draftYear", "draftPosition", "draftType", "recruitedFrom", "debutYear",
   "season"
 )
 combined <- combined[, intersect(keep, names(combined)), drop = FALSE]
