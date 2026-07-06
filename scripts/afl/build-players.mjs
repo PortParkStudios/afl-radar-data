@@ -126,6 +126,26 @@ const METRIC_SOURCES = {
   clangers: ['clangers'],
   turnovers: ['turnovers'],
   timeOnGroundPercentage: ['timeOnGroundPercentage'],
+  // --- Remaining AFL/CD feed columns. Percentages/rates (…Percentage, …Rate,
+  // …Efficiency) are 0-100 and go in NO_TOTAL — averaged, never summed.
+  bounces: ['bounces'],
+  dreamTeamPoints: ['dreamTeamPoints'],
+  freesFor: ['freesFor'],
+  freesAgainst: ['freesAgainst'],
+  shotsAtGoal: ['shotsAtGoal'],
+  centreBounceAttendances: ['extendedStats.centreBounceAttendances'],
+  contestDefLosses: ['extendedStats.contestDefLosses'],
+  contestDefLossPercentage: ['extendedStats.contestDefLossPercentage'],
+  contestOffOneOnOnes: ['extendedStats.contestOffOneOnOnes'],
+  contestOffWins: ['extendedStats.contestOffWins'],
+  contestOffWinsPercentage: ['extendedStats.contestOffWinsPercentage'],
+  effectiveKicks: ['extendedStats.effectiveKicks'],
+  f50GroundBallGets: ['extendedStats.f50GroundBallGets'],
+  hitoutToAdvantageRate: ['extendedStats.hitoutToAdvantageRate'],
+  hitoutWinPercentage: ['extendedStats.hitoutWinPercentage'],
+  kickEfficiency: ['extendedStats.kickEfficiency'],
+  kickins: ['extendedStats.kickins'],
+  kickinsPlayon: ['extendedStats.kickinsPlayon'],
 };
 
 /* ------------------------- CSV parser --------------------------- */
@@ -289,6 +309,12 @@ const fmt = (k, v) => (k === 'metresGained' ? Math.round(v) : round1(v));
 const NO_TOTAL = new Set([
   'disposalEfficiency', 'goalAccuracy', 'contestedRate', 'kickToHandball',
   'timeOnGroundPercentage', // a per-game % — a season "sum" is meaningless
+  // Rates/percentages (0-100) from the AFL/CD feed — game-weighted average only.
+  'contestDefLossPercentage', 'contestOffWinsPercentage',
+  'hitoutToAdvantageRate', 'hitoutWinPercentage', 'kickEfficiency',
+  // Note: goalEfficiency / shotEfficiency / superGoals / ranking return EMPTY
+  // from this source across all seasons, so they're intentionally NOT mapped into
+  // stats (kept only in fetch_afl.R's keep-list to future-proof the feed).
 ]);
 
 const matchStats = (g) => {

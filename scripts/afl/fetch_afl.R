@@ -84,7 +84,20 @@ keep <- c(
   "extendedStats.contestDefOneOnOnes", "extendedStats.defHalfPressureActs",
   "extendedStats.pressureActs", "extendedStats.scoreLaunches",
   "extendedStats.marksOnLead", "extendedStats.hitoutsToAdvantage",
-  "extendedStats.ruckContests", "extendedStats.effectiveDisposals"
+  "extendedStats.ruckContests", "extendedStats.effectiveDisposals",
+  # --- Remaining AFL/CD feed columns: box-score extras, contest breakdowns,
+  # kick-ins, efficiency %s. Percentages are 0-100 (like disposalEfficiency).
+  # goalEfficiency/shotEfficiency/superGoals/ranking come back EMPTY from this
+  # source across all seasons — kept here so they flow through automatically if
+  # the feed ever populates them.
+  "bounces", "dreamTeamPoints", "freesFor", "freesAgainst",
+  "shotsAtGoal", "goalEfficiency", "shotEfficiency", "superGoals", "ranking",
+  "extendedStats.centreBounceAttendances", "extendedStats.contestDefLosses",
+  "extendedStats.contestDefLossPercentage", "extendedStats.contestOffOneOnOnes",
+  "extendedStats.contestOffWins", "extendedStats.contestOffWinsPercentage",
+  "extendedStats.effectiveKicks", "extendedStats.f50GroundBallGets",
+  "extendedStats.hitoutToAdvantageRate", "extendedStats.hitoutWinPercentage",
+  "extendedStats.kickEfficiency", "extendedStats.kickins", "extendedStats.kickinsPlayon"
 )
 combined <- combined[, intersect(keep, names(combined)), drop = FALSE]
 
