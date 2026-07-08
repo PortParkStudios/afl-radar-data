@@ -58,14 +58,8 @@ if (!is.null(rs)) {
   message(sprintf("rising star: %d nominee-seasons", nrow(rsu)))
 }
 
-cv <- gather(function(y) fetch_coaches_votes(season = y))
-if (!is.null(cv)) {
-  # Per-match votes → season totals per player (Player.Name embeds "(TEAM)").
-  cvs <- cv %>%
-    group_by(Season, Player.Name) %>%
-    summarise(votes = sum(Coaches.Votes, na.rm = TRUE), .groups = "drop")
-  write_csv(cvs %>% transmute(season = Season, player = Player.Name, votes = votes), "scripts/afl/honours_coaches.csv")
-  message(sprintf("coaches votes: %d player-seasons", nrow(cvs)))
-}
+# Coaches votes are handled by scripts/afl/fetch_coaches_votes.R (single source of
+# truth), which round-caps the live season. Do NOT re-fetch them here — a plain
+# season sum would overwrite honours_coaches.csv and undo that cap.
 
 message("Now run: node scripts/afl/build-honours.mjs")
