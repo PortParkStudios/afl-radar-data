@@ -57,11 +57,16 @@ function parseName(raw) {
   const s = String(raw ?? '').replace(/\([^)]*\)/g, '').replace(/\s+W\s*$/, '').trim();
   const parts = s.split(/\s+/).filter(Boolean);
   if (parts.length === 0) return null;
-  if (parts.length === 1) return { surname: norm(parts[0]), initial: '' };
+  if (parts.length === 1) return { surname: norm(parts[0]), surnameLast: norm(parts[0]), initial: '' };
   const first = parts[0];
   const initial = (first.length === 1 ? first : first[0]).toLowerCase();
-  const surname = norm(parts.slice(1).join(''));
-  return { surname, initial };
+  const surnameRaw = parts.slice(1).join(' ');
+  const surname = norm(surnameRaw);
+  // Last surname segment — lets an abbreviated hyphenated surname (fitzRoy stores
+  // "Wanganeen-Milera" as "W-Milera") still match on the shared final segment.
+  const segs = surnameRaw.split(/[\s-]+/).filter(Boolean);
+  const surnameLast = norm(segs[segs.length - 1] || surnameRaw);
+  return { surname, surnameLast, initial };
 }
 
 /* ------------------------------ CSV parser ------------------------------ */
@@ -97,6 +102,8 @@ const readCSV = (name) => {
 const players = JSON.parse(readFileSync(PLAYERS, 'utf8')).players || [];
 const byKey = new Map();
 const byLoose = new Map();
+const byLast = new Map(); // keyed by the last surname segment (hyphen fallback)
+const byLastLoose = new Map();
 const addCand = (map, key, cand) => {
   const arr = map.get(key);
   if (!arr) return map.set(key, [cand]);
@@ -110,6 +117,8 @@ for (const p of players) {
   const cand = { pid: p.personId ?? p.id, games: p.games ?? 0 };
   addCand(byKey, `${nm.surname}|${nm.initial}|${p.season}|${p.teamId}`, cand);
   addCand(byLoose, `${nm.surname}|${nm.initial}|${p.season}`, cand);
+  addCand(byLast, `${nm.surnameLast}|${nm.initial}|${p.season}|${p.teamId}`, cand);
+  addCand(byLastLoose, `${nm.surnameLast}|${nm.initial}|${p.season}`, cand);
 }
 
 const stats = { matched: 0, resolved: 0, unmatched: 0 };
@@ -127,8 +136,18 @@ function matchPerson(playerRaw, season, teamRaw) {
     const pid = pickByGames(byKey.get(`${pn.surname}|${pn.initial}|${season}|${teamId}`));
     if (pid) { stats.matched++; return pid; }
   }
-  const pid = pickByGames(byLoose.get(`${pn.surname}|${pn.initial}|${season}`));
+  let pid = pickByGames(byLoose.get(`${pn.surname}|${pn.initial}|${season}`));
   if (pid) { stats.matched++; return pid; }
+  // Fallback: match on the last surname segment, for an abbreviated hyphenated
+  // surname (e.g. "W-Milera" ↔ "Wanganeen-Milera" — both end "milera").
+  if (pn.surnameLast !== pn.surname) {
+    if (teamId) {
+      pid = pickByGames(byLast.get(`${pn.surnameLast}|${pn.initial}|${season}|${teamId}`));
+      if (pid) { stats.matched++; return pid; }
+    }
+    pid = pickByGames(byLastLoose.get(`${pn.surnameLast}|${pn.initial}|${season}`));
+    if (pid) { stats.matched++; return pid; }
+  }
   stats.unmatched++;
   return null;
 }
