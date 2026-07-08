@@ -112,6 +112,27 @@ Rscript scripts/afl/fetch_coaches_votes.R 2026 2026  # current season only (merg
 node scripts/afl/build-honours.mjs --players players.json
 ```
 
+## Deep per-game history export (`gamelogs.csv`)
+
+`players.json` keeps per-game `gameLog` for only the **2 most recent seasons** (to
+stay app-loadable). For a full training / analysis dataset, `build-gamelogs.mjs`
+emits **one row per player per match for every season (2012→now)** to
+`gamelogs.csv` — ~135k rows, all 57 stat keys (same names as `players.json`), plus
+match context (`matchId`, `team`, `opponent`, `homeAway`, `venue`, `round`,
+`utcStartTime`, `pos`). Reuses `afl_raw.csv` from the fetch step — no extra API
+calls.
+
+```bash
+Rscript scripts/afl/fetch_afl.R                 # 2012 → current (whole history)
+node scripts/afl/build-gamelogs.mjs             # -> gamelogs.csv (all seasons)
+node scripts/afl/build-gamelogs.mjs --merge     # current-season only, keep history
+```
+
+The daily `refresh-data.yml` runs the `--merge` form (afl_raw.csv holds just the
+current season), so `gamelogs.csv` stays current without dropping the backfill.
+`matchId` + the carried metadata mean a normalised `matches` table can be split
+off later without a re-pull.
+
 ## Options (`build-players.mjs`)
 
 | Flag | Default | Meaning |

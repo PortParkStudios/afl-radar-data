@@ -97,7 +97,12 @@ keep <- c(
   "extendedStats.contestOffWins", "extendedStats.contestOffWinsPercentage",
   "extendedStats.effectiveKicks", "extendedStats.f50GroundBallGets",
   "extendedStats.hitoutToAdvantageRate", "extendedStats.hitoutWinPercentage",
-  "extendedStats.kickEfficiency", "extendedStats.kickins", "extendedStats.kickinsPlayon"
+  "extendedStats.kickEfficiency", "extendedStats.kickins", "extendedStats.kickinsPlayon",
+  # --- Match context. Ignored by build-players.mjs (it only maps stat columns),
+  # but carried into afl_raw.csv so the per-game export (build-gamelogs.mjs) has a
+  # match key + metadata, and a future normalised matches table can be split off
+  # without a re-pull. providerId is the per-match id.
+  "providerId", "home.team.name", "away.team.name", "venue.name", "round.name"
 )
 combined <- combined[, intersect(keep, names(combined)), drop = FALSE]
 

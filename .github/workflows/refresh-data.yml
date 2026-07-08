@@ -98,6 +98,24 @@ jobs:
             echo "no afl_raw.csv — skipping livestats"
           fi
 
+      - name: Build per-game logs export (deep history)
+        # One row per player per match, ALL seasons -> gamelogs.csv (training /
+        # deep-history dataset; too big for players.json, which keeps only 2
+        # seasons of per-game logs). Reuses afl_raw.csv — no extra AFL API calls.
+        # Full rebuild rewrites every season; the daily incremental MERGES only the
+        # current season (afl_raw.csv holds just the current season) and keeps the
+        # backfilled history. Best-effort.
+        run: |
+          if [ -f scripts/afl/afl_raw.csv ]; then
+            if [ "${{ inputs.full }}" = "true" ]; then
+              node scripts/afl/build-gamelogs.mjs || echo "gamelogs build failed — skipping"
+            else
+              node scripts/afl/build-gamelogs.mjs --merge || echo "gamelogs build failed — skipping"
+            fi
+          else
+            echo "no afl_raw.csv — skipping gamelogs"
+          fi
+
       - name: Refresh AFLCA coaches votes
         # Unlike the once-a-year Brownlow/AA/Rising CSVs, coaches votes ACCUMULATE
         # every round and publish live-weekly — so they refresh on THIS daily
@@ -137,6 +155,8 @@ jobs:
           # Coaches votes refresh weekly, so the regenerated CSV is committed too
           # (the once-a-year Brownlow/AA/Rising CSVs are committed manually).
           [ -f scripts/afl/honours_coaches.csv ] && git add scripts/afl/honours_coaches.csv || true
+          # Deep per-game history export (published training dataset).
+          [ -f gamelogs.csv ] && git add gamelogs.csv || true
           if git diff --cached --quiet; then
             echo "No data changes — nothing to publish."
           else
