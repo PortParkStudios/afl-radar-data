@@ -138,16 +138,19 @@ function matchPerson(playerRaw, season, teamRaw) {
   }
   let pid = pickByGames(byLoose.get(`${pn.surname}|${pn.initial}|${season}`));
   if (pid) { stats.matched++; return pid; }
-  // Fallback: match on the last surname segment, for an abbreviated hyphenated
-  // surname (e.g. "W-Milera" ↔ "Wanganeen-Milera" — both end "milera").
-  if (pn.surnameLast !== pn.surname) {
-    if (teamId) {
-      pid = pickByGames(byLast.get(`${pn.surnameLast}|${pn.initial}|${season}|${teamId}`));
-      if (pid) { stats.matched++; return pid; }
-    }
-    pid = pickByGames(byLastLoose.get(`${pn.surnameLast}|${pn.initial}|${season}`));
+  // Last-segment fallback (only reached when the full surname didn't match).
+  // Handles two feed↔record mismatches:
+  //  - abbreviated hyphenated surnames: "W-Milera" ↔ "Wanganeen-Milera";
+  //  - a middle initial in the record disambiguating same-name players:
+  //    "Josh P. Kennedy" (folds to surname "pkennedy") vs the feed's "J Kennedy"
+  //    — both index the last segment "kennedy", and the team keeps the two Josh
+  //    Kennedys / Tom Lynches apart.
+  if (teamId) {
+    pid = pickByGames(byLast.get(`${pn.surnameLast}|${pn.initial}|${season}|${teamId}`));
     if (pid) { stats.matched++; return pid; }
   }
+  pid = pickByGames(byLastLoose.get(`${pn.surnameLast}|${pn.initial}|${season}`));
+  if (pid) { stats.matched++; return pid; }
   stats.unmatched++;
   return null;
 }
