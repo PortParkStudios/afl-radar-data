@@ -179,12 +179,48 @@ for (const r of readCSV('honours_rising.csv')) {
   bucket(pid, 'risingStar').push({ y: season });
 }
 
+// Per-round coaches votes (recent seasons) → attach to the season entry so the
+// app can render a per-game "CV" column in the game log. Sparse: polled rounds only.
+// The AFLCA feed labels the Opening Round (2024+) as round 1, but our game logs
+// label it 0 — a +1 offset. Detect per season from a round-0 game so the CV map
+// keys line up with the game-log rounds the app renders.
+const seasonOffset = new Map(); // season -> 0|1
+{
+  const minRound = new Map();
+  for (const p of players) {
+    if (!Array.isArray(p.gameLog)) continue;
+    for (const g of p.gameLog) {
+      if (typeof g.round !== 'number') continue;
+      const cur = minRound.get(p.season);
+      if (cur === undefined || g.round < cur) minRound.set(p.season, g.round);
+    }
+  }
+  for (const [s, mn] of minRound) seasonOffset.set(s, mn === 0 ? 1 : 0);
+}
+const coachRounds = new Map(); // `${pid}|${season}` -> { [gamelogRound]: votes }
+for (const r of readCSV('coaches_rounds.csv')) {
+  const season = parseInt(r.season, 10);
+  const feedRound = parseInt(r.round, 10);
+  const votes = Math.round(parseFloat(r.votes) || 0);
+  if (!Number.isFinite(feedRound) || votes <= 0) continue;
+  const m = String(r.player).match(/\(([^)]+)\)/);
+  const pid = matchPerson(r.player, season, m ? m[1] : '');
+  if (!pid) continue;
+  const round = feedRound - (seasonOffset.get(season) ?? 0); // → game-log numbering
+  const key = `${pid}|${season}`;
+  let rr = coachRounds.get(key);
+  if (!rr) coachRounds.set(key, (rr = {}));
+  rr[round] = votes;
+}
 for (const r of readCSV('honours_coaches.csv')) {
   const season = parseInt(r.season, 10);
   const m = String(r.player).match(/\(([^)]+)\)/); // team abbrev inside the name
   const pid = matchPerson(r.player, season, m ? m[1] : '');
   if (!pid) continue;
-  bucket(pid, 'coaches').push({ y: season, v: Math.round(parseFloat(r.votes) || 0) });
+  const entry = { y: season, v: Math.round(parseFloat(r.votes) || 0) };
+  const rr = coachRounds.get(`${pid}|${season}`);
+  if (rr && Object.keys(rr).length) entry.rounds = rr;
+  bucket(pid, 'coaches').push(entry);
 }
 
 // Sort each person's lists newest-first.

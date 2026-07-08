@@ -155,6 +155,7 @@ jobs:
           # Coaches votes refresh weekly, so the regenerated CSV is committed too
           # (the once-a-year Brownlow/AA/Rising CSVs are committed manually).
           [ -f scripts/afl/honours_coaches.csv ] && git add scripts/afl/honours_coaches.csv || true
+          [ -f scripts/afl/coaches_rounds.csv ] && git add scripts/afl/coaches_rounds.csv || true
           # Deep per-game history export (published training dataset).
           [ -f gamelogs.csv ] && git add gamelogs.csv || true
           if git diff --cached --quiet; then

@@ -71,6 +71,7 @@ if (file.exists("players.json")) {
 }
 
 all <- list()
+rounds_all <- list()  # per-round votes for the game-log CV column (recent seasons)
 for (yr in from:to) {
   d <- tryCatch(
     fetch_coaches_votes(season = yr, comp = "AFLM"),
@@ -95,6 +96,20 @@ for (yr in from:to) {
     filter(votes > 0)
   message(sprintf("  %d: %d players with votes (%d round rows)", yr, nrow(agg), nrow(d)))
   all[[as.character(yr)]] <- agg
+  # Keep per-round rows for the two most recent seasons — the app shows a per-game
+  # "CV" column in the game log for those. Sparse (only rounds a player polled) so
+  # honours.json stays small.
+  if (yr >= to - 1) {
+    rounds_all[[as.character(yr)]] <- d %>%
+      mutate(
+        season = as.integer(Season),
+        round = suppressWarnings(as.integer(Round)),
+        player = as.character(Player.Name),
+        v = suppressWarnings(as.numeric(Coaches.Votes))
+      ) %>%
+      filter(!is.na(player), player != "", !is.na(round), !is.na(v), v > 0) %>%
+      transmute(season, round, player, votes = v)
+  }
 }
 
 fresh <- if (length(all)) {
@@ -121,3 +136,23 @@ fresh <- fresh %>%
 
 readr::write_csv(fresh, OUT)
 message(sprintf("Wrote %d season-player coaches-vote total(s) to %s", nrow(fresh), OUT))
+
+# Per-round votes (recent seasons only) → coaches_rounds.csv, which build-honours
+# folds into honours.json for the game-log CV column. Same merge-preserve as above.
+ROUNDS_OUT <- "scripts/afl/coaches_rounds.csv"
+fresh_rounds <- if (length(rounds_all)) bind_rows(rounds_all) else
+  data.frame(season = integer(), round = integer(), player = character(), votes = numeric())
+if (file.exists(ROUNDS_OUT)) {
+  ex <- tryCatch(suppressMessages(readr::read_csv(ROUNDS_OUT, show_col_types = FALSE)),
+                 error = function(e) NULL)
+  if (!is.null(ex) && all(c("season", "round", "player", "votes") %in% names(ex))) {
+    ex <- ex %>% filter(!(season %in% seq(from, to)))
+    fresh_rounds <- bind_rows(ex, fresh_rounds)
+  }
+}
+fresh_rounds <- fresh_rounds %>%
+  filter(season >= to - 1) %>%   # keep only the two most recent seasons
+  distinct(season, round, player, .keep_all = TRUE) %>%
+  arrange(desc(season), desc(round), player)
+readr::write_csv(fresh_rounds, ROUNDS_OUT)
+message(sprintf("Wrote %d per-round coaches-vote row(s) to %s", nrow(fresh_rounds), ROUNDS_OUT))
