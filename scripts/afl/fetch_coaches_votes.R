@@ -33,6 +33,43 @@ OUT  <- "scripts/afl/honours_coaches.csv"
 
 message(sprintf("Fetching AFLCA coaches votes %d-%d ...", from, to))
 
+# --- Live-season round cap ---------------------------------------------------
+# The AFLCA feed publishes rounds AHEAD of our own games feed, so summing the
+# whole season overcounts the live "votes so far this season". Read the round
+# we've actually played from our OWN players.json game logs and cap the live
+# season there. AFL "Opening Round" (2024+) is round 0 for us but round 1 in the
+# feed (a +1 offset, auto-detected from a round-0 game); the Champion Player
+# award is home-and-away only, so freeze at the last H&A round once finals begin.
+live_season <- NA_integer_
+live_cutoff <- Inf
+if (file.exists("players.json")) {
+  pj <- tryCatch(jsonlite::fromJSON("players.json", simplifyVector = FALSE),
+                 error = function(e) NULL)
+  ps <- if (!is.null(pj) && !is.null(pj$players)) pj$players else NULL
+  if (!is.null(ps)) {
+    seasons <- suppressWarnings(vapply(ps,
+      function(p) if (is.null(p$season)) NA_integer_ else as.integer(p$season), integer(1)))
+    live_season <- suppressWarnings(max(seasons, na.rm = TRUE))
+    rmax <- -Inf; rmin <- Inf
+    for (p in ps) {
+      if (is.null(p$season) || as.integer(p$season) != live_season || is.null(p$gameLog)) next
+      for (g in p$gameLog) {
+        r <- g$round
+        if (is.null(r) || !is.numeric(r)) next
+        if (r > rmax) rmax <- r
+        if (r < rmin) rmin <- r
+      }
+    }
+    if (is.finite(rmax)) {
+      offset  <- if (rmin == 0) 1 else 0   # Opening Round: round 0 for us, 1 in the feed
+      last_ha <- if (offset == 1) 24 else 23
+      live_cutoff <- min(rmax, last_ha) + offset
+      message(sprintf("Live season %d: capping coaches votes at feed round <= %d (played round %d, offset %d)",
+                      live_season, live_cutoff, rmax, offset))
+    }
+  }
+}
+
 all <- list()
 for (yr in from:to) {
   d <- tryCatch(
@@ -40,6 +77,11 @@ for (yr in from:to) {
     error = function(e) { message(sprintf("  %d: error - %s", yr, conditionMessage(e))); NULL }
   )
   if (is.null(d) || nrow(d) == 0) { message(sprintf("  %d: no data", yr)); next }
+  # Cap the live season at the round we've played (see the block above); past
+  # seasons are complete and sum in full.
+  if (!is.na(live_season) && yr == live_season && is.finite(live_cutoff)) {
+    d <- d %>% filter(suppressWarnings(as.integer(Round)) <= live_cutoff)
+  }
   # Votes come back as TEXT -> coerce, then sum per player to a season total.
   agg <- d %>%
     mutate(
