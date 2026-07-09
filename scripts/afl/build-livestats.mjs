@@ -20,7 +20,7 @@ const getArg = (name, dflt) => {
 };
 const IN = getArg('in', 'scripts/afl/afl_raw.csv');
 const OUT = getArg('out', 'livestats.json');
-const ROUNDS = Number(getArg('rounds', 1)); // how many of the most recent rounds to include
+const ROUNDS = Number(getArg('rounds', 2)); // keep the last N rounds so a just-finished game survives when the next round appears
 
 // team name -> internal id (matches teams.ts / Squiggle). Duplicated on purpose.
 const TEAM_MATCH = [
@@ -105,7 +105,8 @@ if (rows.length === 0) { console.error(`No rows in ${IN}.`); process.exit(1); }
 const roundNums = [...new Set(rows.map((r) => parseInt(r['round.roundNumber'], 10)).filter(Number.isFinite))].sort((a, b) => a - b);
 const keepRounds = new Set(roundNums.slice(-Math.max(1, ROUNDS)));
 
-const teams = {};
+// Build the fresh line-sets from this CSV slice.
+const fresh = {};
 for (const r of rows) {
   const round = parseInt(r['round.roundNumber'], 10);
   if (!keepRounds.has(round)) continue;
@@ -119,12 +120,29 @@ for (const r of rows) {
   stats.clearances = round1(clearancesOf(r));
 
   const key = `${round}-${tId}`;
-  if (!teams[key]) teams[key] = [];
-  teams[key].push({ pid: `afl-${pid}`, num: jumperOf(r), name: nameOf(r), stats });
+  if (!fresh[key]) fresh[key] = [];
+  fresh[key].push({ pid: `afl-${pid}`, num: jumperOf(r), name: nameOf(r), stats });
+}
+
+// Merge over the previously published file so a completed game's lines PERSIST
+// until the daily seed rebuild adds the round to players.json (the CSV drops a
+// round once the feed rolls forward). Fresh lines override stale ones.
+let teams = {};
+try {
+  const prev = JSON.parse(readFileSync(OUT, 'utf8'));
+  if (prev && prev.teams) teams = prev.teams;
+} catch { /* first run / no existing file */ }
+for (const [key, lines] of Object.entries(fresh)) teams[key] = lines;
+
+// Bound the file to the most recent ROUNDS rounds so it can't grow forever.
+const present = [...new Set(Object.keys(teams).map((k) => parseInt(k.split('-')[0], 10)))].sort((a, b) => a - b);
+const keep = new Set(present.slice(-Math.max(1, ROUNDS)));
+for (const key of Object.keys(teams)) {
+  if (!keep.has(parseInt(key.split('-')[0], 10))) delete teams[key];
 }
 
 // Sort each team's lines by disposals desc (best game up top by default).
 for (const k of Object.keys(teams)) teams[k].sort((a, b) => (b.stats.disposals ?? 0) - (a.stats.disposals ?? 0));
 
-writeFileSync(OUT, JSON.stringify({ season: new Date().getFullYear(), rounds: [...keepRounds], generated: new Date().toISOString(), teams }));
-console.log(`Wrote ${Object.keys(teams).length} team stat line-set(s) for round(s) ${[...keepRounds].join(', ')} to ${OUT}`);
+writeFileSync(OUT, JSON.stringify({ season: new Date().getFullYear(), rounds: [...keep].sort((a, b) => a - b), generated: new Date().toISOString(), teams }));
+console.log(`Wrote ${Object.keys(teams).length} team stat line-set(s) for round(s) ${[...keep].join(', ')} to ${OUT}`);

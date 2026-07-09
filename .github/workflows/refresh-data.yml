@@ -11,7 +11,7 @@ name: Refresh AFL data
 
 on:
   schedule:
-    - cron: '0 20 * * *' # daily, 20:00 UTC (early-morning AEST/AEDT)
+    - cron: '0 17 * * *' # daily, 17:00 UTC (3am AEST / 4am AEDT — after the prior day's games are final)
   workflow_dispatch:
     inputs:
       full:
@@ -108,7 +108,7 @@ jobs:
         # Best-effort.
         run: |
           if [ -f scripts/afl/afl_raw.csv ]; then
-            node scripts/afl/build-livestats.mjs --rounds 1 || echo "livestats build failed — skipping"
+            node scripts/afl/build-livestats.mjs --rounds 2 || echo "livestats build failed — skipping"
           else
             echo "no afl_raw.csv — skipping livestats"
           fi
