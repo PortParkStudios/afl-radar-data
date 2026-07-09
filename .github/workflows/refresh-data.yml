@@ -71,6 +71,21 @@ jobs:
             node scripts/afl/build-players.mjs --json players.json --out none --merge "$DATA_URL" --min-games 1
           fi
 
+      - name: Validate players.json (fail-loud — never publish broken core data)
+        # A broken/empty players.json would take the live app down, so this gate
+        # FAILS the run (nothing publishes) rather than shipping bad core data.
+        run: |
+          node -e '
+            const d = JSON.parse(require("fs").readFileSync("players.json", "utf8"));
+            const rows = (d.players || []).length;
+            const cur = new Date().getUTCFullYear();
+            const maxSeason = Math.max(0, ...(d.players || []).map((p) => p.season));
+            if (!d.version) { console.error("::error::players.json missing version field"); process.exit(1); }
+            if (rows < 5000) { console.error(`::error::players.json only ${rows} rows (<5000)`); process.exit(1); }
+            if (maxSeason < cur - 1) { console.error(`::error::players.json latest season ${maxSeason} looks stale (< ${cur - 1})`); process.exit(1); }
+            console.log(`players.json OK — ${rows} rows, latest season ${maxSeason}, version ${d.version}`);
+          '
+
       - name: Build score worm (recent/live rounds)
         # AFL score-progression for the current + last round. Best-effort: a worm
         # failure must never block the players.json refresh.
@@ -140,6 +155,49 @@ jobs:
             echo "no honours CSVs committed — skipping honours"
           fi
 
+      - name: Build rating weights (precompute)
+        # Fit the 7 per-role rating models from players.json + honours.json so the
+        # app skips the ~10s on-device fit. Version-stamped to match players.json.
+        # Loud but non-blocking: a bad/failed build is annotated + dropped (the app
+        # falls back to on-device), never stalling the players.json publish.
+        run: |
+          if node scripts/afl/build-weights.mjs --players players.json --honours honours.json --out weights.json; then
+            node -e '
+              const w = JSON.parse(require("fs").readFileSync("weights.json", "utf8"));
+              const p = JSON.parse(require("fs").readFileSync("players.json", "utf8"));
+              const roles = Object.keys(w.weights || {});
+              if (roles.length !== 7) { console.error(`::error::weights.json has ${roles.length} roles (!=7)`); process.exit(1); }
+              if (w.version !== p.version) { console.error("::error::weights.json version != players.json"); process.exit(1); }
+              console.log(`weights.json OK — 7 roles, version ${w.version}`);
+            ' || { echo "::error::weights.json invalid — not publishing"; rm -f weights.json; }
+          else
+            echo "::error::build-weights failed — not publishing weights.json"; rm -f weights.json
+          fi
+
+      - name: Build team stats (precompute)
+        # Daily-fresh team per-game presets so the current season isn't frozen to
+        # the app's bundled seed. Reuses afl_raw.csv from the fetch step. The seed
+        # .ts writes go to a scratch dir that is never published — only team-stats.json.
+        run: |
+          if [ -f scripts/afl/afl_raw.csv ]; then
+            mkdir -p src/data/seed
+            if node scripts/afl/build-team-stats.mjs --json team-stats.json --players players.json; then
+              node -e '
+                const t = JSON.parse(require("fs").readFileSync("team-stats.json", "utf8"));
+                const p = JSON.parse(require("fs").readFileSync("players.json", "utf8"));
+                const seasons = Object.keys(t.teamStats || {});
+                if (!seasons.length) { console.error("::error::team-stats.json has no seasons"); process.exit(1); }
+                if (t.version !== p.version) { console.error("::error::team-stats.json version != players.json"); process.exit(1); }
+                console.log(`team-stats.json OK — ${seasons.length} seasons, version ${t.version}`);
+              ' || { echo "::error::team-stats.json invalid — not publishing"; rm -f team-stats.json; }
+            else
+              echo "::error::build-team-stats failed — not publishing team-stats.json"; rm -f team-stats.json
+            fi
+            rm -rf src/data
+          else
+            echo "afl_raw.csv absent — skipping team-stats"
+          fi
+
       - name: Commit + push updated data
         # Publishes to THIS repo via the built-in GITHUB_TOKEN (permissions:
         # contents: write). Only the JSON outputs are staged — the regenerated
@@ -158,6 +216,9 @@ jobs:
           [ -f scripts/afl/coaches_rounds.csv ] && git add scripts/afl/coaches_rounds.csv || true
           # Deep per-game history export (published training dataset).
           [ -f gamelogs.csv ] && git add gamelogs.csv || true
+          # Hosted precompute artifacts (version-stamped to match players.json).
+          [ -f weights.json ] && git add weights.json || true
+          [ -f team-stats.json ] && git add team-stats.json || true
           if git diff --cached --quiet; then
             echo "No data changes — nothing to publish."
           else

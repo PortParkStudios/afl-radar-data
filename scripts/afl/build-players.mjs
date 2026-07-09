@@ -12,6 +12,7 @@
 // No npm dependencies — uses a small built-in CSV parser.
 // ---------------------------------------------------------------------------
 
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 /* ----------------------------- args ----------------------------- */
@@ -555,8 +556,12 @@ if (unmappedTeams.size) {
 // Full dataset as JSON — for remote hosting (Model B). Compact (no indent).
 if (JSON_OUT) {
   const outSeason = players.length ? Math.max(...players.map((p) => p.season)) : 0;
-  writeFileSync(JSON_OUT, JSON.stringify({ season: outSeason, players }));
-  console.log(`Wrote ${players.length} player-seasons to ${JSON_OUT} (JSON)`);
+  // Canonical content version: a hash of the player rows. Hosted precompute
+  // artifacts (weights.json / team-stats.json) stamp the same value so the app
+  // only trusts them when they match the exact dataset it loaded.
+  const version = createHash('sha256').update(JSON.stringify(players)).digest('hex').slice(0, 16);
+  writeFileSync(JSON_OUT, JSON.stringify({ season: outSeason, version, players }));
+  console.log(`Wrote ${players.length} player-seasons to ${JSON_OUT} (JSON), version ${version}`);
 }
 
 // TS module (bundled). Emit in ~500-row chunks and concatenate: one giant

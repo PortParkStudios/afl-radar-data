@@ -6,7 +6,13 @@
 //
 //   node scripts/afl/build-team-stats.mjs [--in scripts/afl/afl_raw.csv]
 // ---------------------------------------------------------------------------
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
+
+const argv = (flag) => {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : undefined;
+};
 
 const IN = 'scripts/afl/afl_raw.csv';
 const OUT = 'src/data/seed/teamStats.ts';
@@ -253,3 +259,19 @@ console.log(`Wrote ${OUT} — seasons ${seasons.join(', ')}, ${groups.size} team
 const last = seasons[seasons.length - 1];
 const c = stats[last]?.['4'];
 if (c) console.log(`  Collingwood ${last}: goals ${c.goals}, behinds ${c.behinds}, implied pts/g ${round1(c.goals * 6 + c.behinds)}, disposals ${c.disposals}, games ${games[last]['4']}`);
+
+// Also emit a version-stamped team-stats.json for the app to consume, so the
+// current season's team presets stay daily-fresh instead of frozen to the app's
+// bundled seed. Version derives from players.json (same scheme as build-weights).
+const jsonOut = argv('--json');
+if (jsonOut) {
+  const playersPath = argv('--players');
+  let version = null;
+  if (playersPath) {
+    const raw = readFileSync(playersPath, 'utf8');
+    const doc = JSON.parse(raw);
+    version = doc.version ?? createHash('sha256').update(raw).digest('hex').slice(0, 16);
+  }
+  writeFileSync(jsonOut, JSON.stringify({ version, teamStats: stats, teamGames: games }) + '\n');
+  console.log(`Wrote ${jsonOut} — version ${version}, seasons ${seasons.join(', ')}.`);
+}
