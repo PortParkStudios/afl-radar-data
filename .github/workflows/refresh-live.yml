@@ -168,8 +168,12 @@ jobs:
                 echo "No changes — nothing to publish."
               else
                 git commit -m "Live refresh ($(date -u +'%F %H:%M') UTC)"
-                git push
-                echo "Published live data."
+                # Rebase-before-push with retry — a daily/manual run can push mid-loop.
+                for i in 1 2 3; do
+                  git push && { echo "Published live data."; break; }
+                  echo "Push rejected — rebasing onto remote (attempt $i/3)."
+                  git pull --rebase -X theirs origin main || break
+                done
               fi
             fi
 
