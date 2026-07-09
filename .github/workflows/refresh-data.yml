@@ -198,6 +198,31 @@ jobs:
             echo "afl_raw.csv absent — skipping team-stats"
           fi
 
+      - name: Build awards — All-Australian (precompute)
+        # The expensive AA Monte-Carlo only; the Brownlow tally + coaches stay
+        # computed on-device (live in-round). Needs weights.json (above) +
+        # current-season games via the live proxy. Loud but non-blocking.
+        run: |
+          if [ -f weights.json ] && [ -f honours.json ]; then
+            YEAR=$(date -u +%Y)
+            curl -sf -m 30 "https://kickpoint-live.kickpoint.workers.dev/?q=games;year=$YEAR" -o games.json || echo "games fetch failed — neutral win rate"
+            if node scripts/afl/build-awards.mjs --players players.json --weights weights.json --honours honours.json --games games.json --out awards.json; then
+              node -e '
+                const a = JSON.parse(require("fs").readFileSync("awards.json", "utf8"));
+                const p = JSON.parse(require("fs").readFileSync("players.json", "utf8"));
+                const def = (a.aa?.full?.team || []).find((g) => g.key === "DEF");
+                if (!def || def.selected.length !== 6) { console.error("::error::awards.json AA DEF line not 6"); process.exit(1); }
+                if (a.version !== p.version) { console.error("::error::awards.json version != players.json"); process.exit(1); }
+                console.log(`awards.json OK — AA team present, version ${a.version}`);
+              ' || { echo "::error::awards.json invalid — not publishing"; rm -f awards.json; }
+            else
+              echo "::error::build-awards failed — not publishing awards.json"; rm -f awards.json
+            fi
+            rm -f games.json
+          else
+            echo "weights.json/honours.json absent — skipping awards"
+          fi
+
       - name: Commit + push updated data
         # Publishes to THIS repo via the built-in GITHUB_TOKEN (permissions:
         # contents: write). Only the JSON outputs are staged — the regenerated
@@ -219,6 +244,7 @@ jobs:
           # Hosted precompute artifacts (version-stamped to match players.json).
           [ -f weights.json ] && git add weights.json || true
           [ -f team-stats.json ] && git add team-stats.json || true
+          [ -f awards.json ] && git add awards.json || true
           if git diff --cached --quiet; then
             echo "No data changes — nothing to publish."
           else
