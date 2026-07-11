@@ -17,10 +17,16 @@ name: Refresh live match data
 
 on:
   schedule:
-    # UTC. AFL is AEST (UTC+10). Coarse */15 start — GitHub honours it far more
-    # reliably than */5; the internal loop provides the real in-game cadence.
-    - cron: '*/15 2-13 * * 6,0' # Sat & Sun (AEST early afternoon → midnight)
-    - cron: '*/15 8-13 * * 4,5' # Thu & Fri nights
+    # UTC. AFL is AEST (UTC+10). We only need ONE start per match window — the
+    # internal loop then self-sustains ~3h. GitHub silently drops scheduled runs
+    # (esp. at round minutes, under load), so instead of a single */15 we fire
+    # TWO offset cadences per window at off-peak minutes (~every 7-8 min of start
+    # attempts). Extra starts are harmless: the run-id guard bails duplicates in
+    # seconds. A whole window is now only missed if GitHub drops ~8 starts in a row.
+    - cron: '2,17,32,47 2-13 * * 6,0' # Sat & Sun (AEST early afternoon → midnight)
+    - cron: '9,24,39,54 2-13 * * 6,0' # Sat & Sun (offset)
+    - cron: '2,17,32,47 8-13 * * 4,5' # Thu & Fri nights
+    - cron: '9,24,39,54 8-13 * * 4,5' # Thu & Fri nights (offset)
   workflow_dispatch:
 
 permissions:
