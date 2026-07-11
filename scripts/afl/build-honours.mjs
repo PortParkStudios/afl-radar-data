@@ -219,6 +219,23 @@ const seasonOffset = new Map(); // season -> 0|1
   }
   for (const [s, mn] of minRound) seasonOffset.set(s, mn === 0 ? 1 : 0);
 }
+
+// Per-game completion gate for the LIVE season. The AFLCA feed publishes a
+// round's votes ahead of our fixture, and its round labels lead by the Opening
+// Round offset — so mid-round (some games done, others in progress) it carries
+// votes for players whose game that round HASN'T finished. Build the set of
+// (player, round) pairs we actually have a completed game log for, and drop any
+// live-season coaches vote whose game isn't in it. Past seasons are complete, so
+// this only touches the current season; byes and partial rounds are handled
+// exactly (no game log → no vote).
+let liveSeason = -Infinity;
+for (const p of players) if (typeof p.season === 'number' && p.season > liveSeason) liveSeason = p.season;
+const playedLive = new Set(); // `${personId}|${round}` for the live season
+for (const p of players) {
+  if (p.season !== liveSeason || !Array.isArray(p.gameLog)) continue;
+  for (const g of p.gameLog) if (typeof g.round === 'number') playedLive.add(`${p.personId}|${g.round}`);
+}
+
 const coachRounds = new Map(); // `${pid}|${season}` -> { [gamelogRound]: votes }
 for (const r of readCSV('coaches_rounds.csv')) {
   const season = parseInt(r.season, 10);
@@ -229,6 +246,9 @@ for (const r of readCSV('coaches_rounds.csv')) {
   const pid = matchPerson(r.player, season, m ? m[1] : '');
   if (!pid) continue;
   const round = feedRound - (seasonOffset.get(season) ?? 0); // → game-log numbering
+  // Live season: only keep the vote once that player's game that round is a
+  // completed game in our logs (drops feed-ahead / mid-round phantom votes).
+  if (season === liveSeason && !playedLive.has(`${pid}|${round}`)) continue;
   const key = `${pid}|${season}`;
   let rr = coachRounds.get(key);
   if (!rr) coachRounds.set(key, (rr = {}));
@@ -239,8 +259,14 @@ for (const r of readCSV('honours_coaches.csv')) {
   const m = String(r.player).match(/\(([^)]+)\)/); // team abbrev inside the name
   const pid = matchPerson(r.player, season, m ? m[1] : '');
   if (!pid) continue;
-  const entry = { y: season, v: Math.round(parseFloat(r.votes) || 0) };
   const rr = coachRounds.get(`${pid}|${season}`);
+  // Live season: the season total must match the gated per-round votes, else it
+  // re-introduces the phantom votes we just dropped. (Past seasons keep the CSV
+  // total — they have no per-round data / no feed-ahead issue.)
+  let v = Math.round(parseFloat(r.votes) || 0);
+  if (season === liveSeason) v = rr ? Object.values(rr).reduce((a, b) => a + b, 0) : 0;
+  if (v <= 0 && !(rr && Object.keys(rr).length)) continue; // no completed-game votes yet
+  const entry = { y: season, v };
   if (rr && Object.keys(rr).length) entry.rounds = rr;
   bucket(pid, 'coaches').push(entry);
 }
