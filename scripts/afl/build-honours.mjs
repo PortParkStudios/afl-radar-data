@@ -237,6 +237,7 @@ for (const p of players) {
 }
 
 const coachRounds = new Map(); // `${pid}|${season}` -> { [gamelogRound]: votes }
+const liveByRound = new Map(); // round -> Map(pid -> votes), live season only
 for (const r of readCSV('coaches_rounds.csv')) {
   const season = parseInt(r.season, 10);
   const feedRound = parseInt(r.round, 10);
@@ -253,6 +254,39 @@ for (const r of readCSV('coaches_rounds.csv')) {
   let rr = coachRounds.get(key);
   if (!rr) coachRounds.set(key, (rr = {}));
   rr[round] = votes;
+  if (season === liveSeason) {
+    let byr = liveByRound.get(round);
+    if (!byr) liveByRound.set(round, (byr = new Map()));
+    byr.set(pid, votes);
+  }
+}
+
+// Carry-forward guard. Before a round's real AFLCA votes exist, the feed
+// republishes the PREVIOUS round's votes under the next round number — so a
+// just-completed game shows last week's votes. Detect it: a trailing live-season
+// round whose every vote equals the SAME player's vote in the round before it is
+// a duplicate, not real data → drop it entirely. Loop from the top in case more
+// than one stale round is carried; stop at the first genuinely-new round. Real
+// votes differ from the prior week, so they're never dropped.
+const phantomRounds = new Set();
+{
+  const rs = [...liveByRound.keys()].sort((a, b) => a - b);
+  for (let i = rs.length - 1; i > 0; i--) {
+    if (rs[i] - rs[i - 1] !== 1) break; // not consecutive — don't compare across a gap
+    const cur = liveByRound.get(rs[i]);
+    const prev = liveByRound.get(rs[i - 1]);
+    let duplicate = cur.size > 0;
+    for (const [pid, v] of cur) if (prev.get(pid) !== v) { duplicate = false; break; }
+    if (duplicate) phantomRounds.add(rs[i]);
+    else break;
+  }
+  if (phantomRounds.size) {
+    for (const [key, rr] of coachRounds) {
+      if (!key.endsWith(`|${liveSeason}`)) continue;
+      for (const pr of phantomRounds) delete rr[pr];
+    }
+    console.log(`Coaches: dropped carry-forward round(s) ${[...phantomRounds].join(', ')} (votes not yet published).`);
+  }
 }
 for (const r of readCSV('honours_coaches.csv')) {
   const season = parseInt(r.season, 10);
