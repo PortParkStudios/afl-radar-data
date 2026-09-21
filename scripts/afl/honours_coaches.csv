@@ -1,14 +1,15 @@
 season,player,votes
-2026,Luke Jackson (FRE),147
 2026,Nick Daicos (COLL),140
-2026,Will Ashcroft (BL),137
-2026,Zac Bailey (BL),125
+2026,Will Ashcroft (BL),123
+2026,Caleb Serong (FRE),114
+2026,Nick Watson (HAW),111
 2026,Marcus Bontempelli (WB),106
-2026,Shai Bolton (FRE),96
+2026,Luke Jackson (FRE),91
 2026,Max Gawn (MELB),85
 2026,Patrick Cripps (CARL),76
 2026,Bailey Smith (GEEL),75
 2026,Jason Horne-Francis (PORT),75
+2026,Shai Bolton (FRE),75
 2026,Isaac Heeney (SYD),74
 2026,Jai Newcombe (HAW),74
 2026,Kysaiah Pickett (MELB),73
@@ -18,33 +19,35 @@ season,player,votes
 2026,Brodie Grundy (SYD),66
 2026,Lachie Neale (BL),65
 2026,Max Holmes (GEEL),65
+2026,Hugh McCluggage (BL),62
+2026,Hayden Young (FRE),61
 2026,Harley Reid (WCE),60
+2026,Andrew Brayshaw (FRE),56
 2026,Luke Davies-Uniacke (NMFC),56
+2026,Tom McCartin (SYD),56
 2026,Harry Sheezel (NMFC),55
 2026,Jarman Impey (HAW),55
+2026,Zac Bailey (BL),55
 2026,Wayne Milera (ADEL),54
-2026,Charlie Cameron (BL),52
 2026,Clayton Oliver (GWS),52
 2026,Jagga Smith (CARL),52
 2026,Sam Walsh (CARL),52
-2026,Caleb Serong (FRE),51
 2026,Murphy Reid (FRE),51
-2026,Andrew Brayshaw (FRE),49
 2026,Chad Warner (SYD),49
 2026,Izak Rankine (ADEL),49
-2026,Oliver Henry (GEEL),48
 2026,Tom Sparrow (MELB),47
 2026,Jye Amiss (FRE),46
 2026,Ed Richards (WB),45
+2026,Errol Gulden (SYD),45
+2026,Josh Ward (HAW),45
 2026,Callum Wilkie (STK),44
 2026,Finn Callaghan (GWS),42
-2026,Nick Watson (HAW),41
 2026,Charlie Curnow (SYD),40
+2026,Kai Lohmann (BL),40
 2026,Shaun Mannagh (GEEL),40
 2026,Toby Greene (GWS),40
 2026,George Hewett (CARL),39
 2026,Christian Petracca (GCFC),38
-2026,Errol Gulden (SYD),38
 2026,Jacob Van Rooyen (MELB),38
 2026,Jordan De Goey (COLL),38
 2026,Josh Treacy (FRE),38
@@ -53,10 +56,7 @@ season,player,votes
 2026,Jack Gunston (HAW),37
 2026,Sam Berry (ADEL),37
 2026,Matt Rowell (GCFC),36
-2026,Josh Dunkley (BL),35
-2026,Patrick Voss (FRE),35
 2026,Tristan Xerri (NMFC),34
-2026,Hayden Young (FRE),33
 2026,Nick Blakey (SYD),33
 2026,Noah Anderson (GCFC),32
 2026,Bodhi Uwland (GCFC),31
@@ -71,11 +71,9 @@ season,player,votes
 2026,John Noble (GCFC),28
 2026,Justin McInerney (SYD),28
 2026,Hugo Garcia (STK),27
-2026,Ryan Lester (BL),27
 2026,Touk Miller (GCFC),27
 2026,Joshua Rachele (ADEL),26
 2026,Kade Chandler (MELB),26
-2026,Kai Lohmann (BL),26
 2026,Sam Durham (ESS),26
 2026,Aliir Aliir (PORT),25
 2026,Harris Andrews (BL),25
@@ -89,9 +87,8 @@ season,player,votes
 2026,Bradley Hill (STK),21
 2026,Darcy Parish (ESS),21
 2026,Luke Parker (NMFC),21
-2026,Tom McCartin (SYD),21
+2026,Patrick Voss (FRE),21
 2026,Tom Stewart (GEEL),21
-2026,Cameron Rayner (BL),20
 2026,Connor O'Sullivan (GEEL),20
 2026,Daniel McStay (COLL),20
 2026,Jack Ginnivan (HAW),20
@@ -107,6 +104,7 @@ season,player,votes
 2026,Reuben Ginbey (WCE),18
 2026,Shannon Neale (GEEL),18
 2026,Tim Kelly (WCE),18
+2026,Charlie Cameron (BL),17
 2026,Liam Ryan (STK),17
 2026,Alex Pearce (FRE),16
 2026,Bayley Fritsch (MELB),16
@@ -128,18 +126,19 @@ season,player,votes
 2026,Tom Barrass (HAW),15
 2026,Colby McKercher (NMFC),14
 2026,Jarrod Berry (BL),14
+2026,Josh Dunkley (BL),14
 2026,Lawson Humphries (GEEL),14
 2026,Tom Papley (SYD),14
 2026,Cooper Trembath (NMFC),13
 2026,Darcy Wilson (STK),13
 2026,Finn O'Sullivan (NMFC),13
-2026,Hugh McCluggage (BL),13
 2026,Jack Ross (RICH),13
 2026,James Sicily (HAW),13
 2026,Joe Richards (PORT),13
 2026,Matthew Kennedy (WB),13
 2026,Mitchell Georgiades (PORT),13
 2026,Peter Wright (ESS),13
+2026,Ryan Lester (BL),13
 2026,Ben King (GCFC),12
 2026,Brent Daniels (GWS),12
 2026,Daniel Turner (MELB),12
@@ -165,7 +164,6 @@ season,player,votes
 2026,Jai Serong (SYD),10
 2026,Jake Bowey (MELB),10
 2026,Jayden Short (RICH),10
-2026,Josh Ward (HAW),10
 2026,Josh Worrell (ADEL),10
 2026,Malcolm Rosas Jr (SYD),10
 2026,Mitch Lewis (HAW),10
@@ -208,9 +206,9 @@ season,player,votes
 2026,Sam Taylor (GWS),7
 2026,Tim Membrey (COLL),7
 2026,Tom De Koning (STK),7
-2026,Zach Guthrie (GEEL),7
 2026,Zach Reid (ESS),7
 2026,Brayden Cook (ADEL),6
+2026,Cameron Rayner (BL),6
 2026,Conor Nash (HAW),6
 2026,Harry Sharp (MELB),6
 2026,Isaac Quaynor (COLL),6
@@ -218,6 +216,7 @@ season,player,votes
 2026,Lachie Bramble (WB),6
 2026,Massimo D'Ambrosio (HAW),6
 2026,Milan Murdock (WCE),6
+2026,Oliver Henry (GEEL),6
 2026,Ollie Wines (PORT),6
 2026,Patrick Retschko (RICH),6
 2026,Phoenix Gothard (GWS),6
