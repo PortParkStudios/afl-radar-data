@@ -1,15 +1,14 @@
 season,player,votes
+2026,Will Ashcroft (BL),175.5
 2026,Nick Daicos (COLL),140
-2026,Will Ashcroft (BL),123
-2026,Caleb Serong (FRE),114
-2026,Nick Watson (HAW),111
+2026,Caleb Serong (FRE),128
+2026,Luke Jackson (FRE),119
 2026,Marcus Bontempelli (WB),106
-2026,Luke Jackson (FRE),91
+2026,Shai Bolton (FRE),85.5
 2026,Max Gawn (MELB),85
 2026,Patrick Cripps (CARL),76
 2026,Bailey Smith (GEEL),75
 2026,Jason Horne-Francis (PORT),75
-2026,Shai Bolton (FRE),75
 2026,Isaac Heeney (SYD),74
 2026,Jai Newcombe (HAW),74
 2026,Kysaiah Pickett (MELB),73
@@ -19,12 +18,9 @@ season,player,votes
 2026,Brodie Grundy (SYD),66
 2026,Lachie Neale (BL),65
 2026,Max Holmes (GEEL),65
-2026,Hugh McCluggage (BL),62
-2026,Hayden Young (FRE),61
 2026,Harley Reid (WCE),60
-2026,Andrew Brayshaw (FRE),56
+2026,Josh Dunkley (BL),56
 2026,Luke Davies-Uniacke (NMFC),56
-2026,Tom McCartin (SYD),56
 2026,Harry Sheezel (NMFC),55
 2026,Jarman Impey (HAW),55
 2026,Zac Bailey (BL),55
@@ -33,21 +29,21 @@ season,player,votes
 2026,Jagga Smith (CARL),52
 2026,Sam Walsh (CARL),52
 2026,Murphy Reid (FRE),51
+2026,Andrew Brayshaw (FRE),49
 2026,Chad Warner (SYD),49
 2026,Izak Rankine (ADEL),49
 2026,Tom Sparrow (MELB),47
 2026,Jye Amiss (FRE),46
 2026,Ed Richards (WB),45
-2026,Errol Gulden (SYD),45
-2026,Josh Ward (HAW),45
 2026,Callum Wilkie (STK),44
 2026,Finn Callaghan (GWS),42
+2026,Nick Watson (HAW),41
 2026,Charlie Curnow (SYD),40
-2026,Kai Lohmann (BL),40
 2026,Shaun Mannagh (GEEL),40
 2026,Toby Greene (GWS),40
 2026,George Hewett (CARL),39
 2026,Christian Petracca (GCFC),38
+2026,Errol Gulden (SYD),38
 2026,Jacob Van Rooyen (MELB),38
 2026,Jordan De Goey (COLL),38
 2026,Josh Treacy (FRE),38
@@ -74,6 +70,7 @@ season,player,votes
 2026,Touk Miller (GCFC),27
 2026,Joshua Rachele (ADEL),26
 2026,Kade Chandler (MELB),26
+2026,Kai Lohmann (BL),26
 2026,Sam Durham (ESS),26
 2026,Aliir Aliir (PORT),25
 2026,Harris Andrews (BL),25
@@ -88,6 +85,7 @@ season,player,votes
 2026,Darcy Parish (ESS),21
 2026,Luke Parker (NMFC),21
 2026,Patrick Voss (FRE),21
+2026,Tom McCartin (SYD),21
 2026,Tom Stewart (GEEL),21
 2026,Connor O'Sullivan (GEEL),20
 2026,Daniel McStay (COLL),20
@@ -114,6 +112,7 @@ season,player,votes
 2026,Jordon Sweet (PORT),16
 2026,Lachie Whitfield (GWS),16
 2026,Paul Curtis (NMFC),16
+2026,Hayden Young (FRE),15.5
 2026,Aaron Naughton (WB),15
 2026,Archie Roberts (ESS),15
 2026,Bailey J Williams (WCE),15
@@ -124,14 +123,15 @@ season,player,votes
 2026,Riley Thilthorpe (ADEL),15
 2026,Scott Pendlebury (COLL),15
 2026,Tom Barrass (HAW),15
+2026,Dayne Zorko (BL),14.5
 2026,Colby McKercher (NMFC),14
 2026,Jarrod Berry (BL),14
-2026,Josh Dunkley (BL),14
 2026,Lawson Humphries (GEEL),14
 2026,Tom Papley (SYD),14
 2026,Cooper Trembath (NMFC),13
 2026,Darcy Wilson (STK),13
 2026,Finn O'Sullivan (NMFC),13
+2026,Hugh McCluggage (BL),13
 2026,Jack Ross (RICH),13
 2026,James Sicily (HAW),13
 2026,Joe Richards (PORT),13
@@ -164,6 +164,7 @@ season,player,votes
 2026,Jai Serong (SYD),10
 2026,Jake Bowey (MELB),10
 2026,Jayden Short (RICH),10
+2026,Josh Ward (HAW),10
 2026,Josh Worrell (ADEL),10
 2026,Malcolm Rosas Jr (SYD),10
 2026,Mitch Lewis (HAW),10
@@ -242,7 +243,6 @@ season,player,votes
 2026,Aaron Cadman (GWS),4
 2026,Arthur Jones (WB),4
 2026,Brennan Cox (FRE),4
-2026,Dayne Zorko (BL),4
 2026,James Borlase (ADEL),4
 2026,James Peatling (ADEL),4
 2026,Jamie Elliott (COLL),4
